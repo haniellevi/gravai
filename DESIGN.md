@@ -404,3 +404,13 @@ Uma curva só: ease-out exponencial `cubic-bezier(.16,1,.3,1)`; 180ms para press
 - **Don't** usar sombra dura ou deslocada sem desfoque.
 - **Don't** escurecer o app inteiro: só gravação/teleprompter é escuro.
 - **Don't** misturar bibliotecas de ícones nem pesos de traço.
+
+## Marca Gravaí
+
+Logo e identidade em `design/marca/` (SVGs em curvas + `identidade.html`).
+
+- **Símbolo:** anel quase fechado (lente) cuja abertura desenha um G, com o ponto REC no centro. Nunca remover o ponto.
+- **Nome:** "gravaí" minúsculo em Bricolage Grotesque ExtraBold, convertido em curvas; o acento do "í" é a luz REC (pílula inclinada em rosa, ou amarelo no negativo).
+- **Cores da marca:** Rosa Gravaí `#E11D55` + Amarelo REC `#FFC21A` só como ponto de luz. Cores de corte nunca entram no logo.
+- **Versões:** horizontal (principal), símbolo, nome, negativos (sobre rosa e sobre escuro), ícone do app/favicon.
+- **Mínimos:** 96 px de largura (horizontal), 24 px (símbolo); respiro = 2× o diâmetro do ponto central.
