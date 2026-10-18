@@ -45,6 +45,8 @@ async function gravar(page: Page, segundos: number) {
 test("take único: grava, vê a prévia, usa e aprova", async ({ page }) => {
   test.setTimeout(120_000);
   const id = await projetoComScript(page, "gravar-take");
+  // Nada pulado: a conferência de trecho pulado tem teste próprio logo abaixo.
+  await page.route("**/api/record/skipped*", (route) => route.fulfill({ json: { skipped: [] } }));
   await page.goto(`/projetos/${id}/gravar`);
   await page.getByText("Tudo de uma vez").click();
   await page.getByRole("link", { name: "Gravar tudo de uma vez" }).click();
@@ -55,6 +57,9 @@ test("take único: grava, vê a prévia, usa e aprova", async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar$`));
   await page.getByRole("button", { name: "Aprovar e guardar" }).click();
   await expect(page.getByRole("heading", { name: "Suas gravações" })).toBeVisible();
+  // Conferência em duas fases: o vídeo e o projeto (aqui, vídeo solto)
+  await expect(page.getByRole("heading", { name: "Este vídeo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sem projeto" })).toBeVisible();
 
   await page.goto("/projetos");
   await expect(page.getByText("Gravado", { exact: true })).toBeVisible();
@@ -82,15 +87,25 @@ test("por blocos: refaz o 1º, grava todos e fica uma gravação pronta por bloc
   await expect(page).toHaveURL(/teleprompter\?modo=blocos&bloco=/);
   await gravar(page, 2);
   await page.getByRole("button", { name: "Usar este" }).click();
-  await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar$`));
+  await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar\\?feito=`));
+  // Lembrete: segue para a próxima parte e avisa quais faltam
+  await expect(page.getByRole("heading", { name: "Gravar a próxima: Trecho 1" })).toBeVisible();
+  await expect(page.getByRole("alert", { name: "Partes que faltam" })).toContainText("Trecho 1");
+  await expect(page.getByRole("button", { name: "Aprovar e guardar" })).toBeDisabled();
+  await page.getByRole("link", { name: "Gravar Trecho 1" }).click();
+  await expect(page).toHaveURL(/teleprompter\?modo=blocos&bloco=/);
+  await expect(page.getByText(`bloco 2 de ${BLOCOS}`)).toBeVisible();
+  await gravar(page, 2);
+  await page.getByRole("button", { name: "Usar este" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar\\?feito=`));
 
   // Demais blocos, um por um, pela lista
-  for (let n = 2; n <= BLOCOS; n++) {
+  for (let n = 3; n <= BLOCOS; n++) {
     await page.getByRole("link", { name: "Gravar", exact: true }).first().click();
     await expect(page.getByText(`bloco ${n} de ${BLOCOS}`)).toBeVisible();
     await gravar(page, 2);
     await page.getByRole("button", { name: "Usar este" }).click();
-    await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar$`));
+    await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar\\?feito=`));
   }
 
   await page.getByRole("button", { name: "Aprovar e guardar" }).click();
@@ -100,6 +115,36 @@ test("por blocos: refaz o 1º, grava todos e fica uma gravação pronta por bloc
   expect(data).toHaveLength(BLOCOS);
   expect(data!.every((r) => r.status === "ready")).toBe(true);
   expect(new Set(data!.map((r) => r.block_id)).size).toBe(BLOCOS);
+});
+
+test("tela inicial mostra 'Faltam N partes' quando o vídeo está sendo gravado por blocos", async ({ page }) => {
+  test.setTimeout(120_000);
+  const id = await projetoComScript(page, "gravar-faltam");
+  await page.goto(`/projetos/${id}/gravar`);
+  await page.getByRole("link", { name: "Gravar por blocos" }).click();
+  await gravar(page, 2);
+  await page.getByRole("button", { name: "Usar este" }).click();
+  await expect(page).toHaveURL(/\/aprovar\?feito=/);
+  await page.goto("/projetos");
+  await expect(page.getByText(`Faltam ${BLOCOS - 1} partes para gravar`)).toBeVisible();
+});
+
+test("take único: aviso de trecho pulado, com 'Seguir mesmo assim' (precisa AI_MOCK=1)", async ({ page }) => {
+  test.setTimeout(120_000);
+  const id = await projetoComScript(page, "gravar-pulou");
+  await page.route("**/api/record/skipped*", async (route) => {
+    // A detecção em si é testada em tests/unit/record-skipped.test.ts; aqui só a tela do aviso.
+    await route.fulfill({ json: { skipped: [{ id: "x", label: "Trecho 2", coverage: 0 }] } });
+  });
+  await page.goto(`/projetos/${id}/gravar`);
+  await page.getByText("Tudo de uma vez").click();
+  await page.getByRole("link", { name: "Gravar tudo de uma vez" }).click();
+  await gravar(page, 3);
+  await page.getByRole("button", { name: "Usar este" }).click();
+  await expect(page.getByText("Parece que você pulou o Trecho 2.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Gravar de novo" })).toBeVisible();
+  await page.getByRole("button", { name: "Seguir mesmo assim" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projetos/${id}/gravar/aprovar$`));
 });
 
 test("vídeo de fora: aceita um pequeno e recusa um de 501 MB", async ({ page }, testInfo) => {
@@ -185,30 +230,45 @@ test("teleprompter: arrastar com o dedo move o texto e segura enquanto o dedo es
   await expect(texto).toHaveAccessibleName("Continuar texto");
 });
 
-test("ajustes de câmera: troca para trás e Alta, guarda no aparelho e grava", async ({ page }) => {
+test("ajustes de câmera: automático ligado, câmeras com nome, 1080p, Info técnica real, guarda e fecha ao tocar fora", async ({ page }) => {
   test.setTimeout(90_000);
   const id = await projetoComScript(page, "gravar-camera");
   await page.goto(`/projetos/${id}/gravar/teleprompter?modo=take`);
   await expect(page.getByRole("button", { name: "Começar a gravar" })).toBeEnabled({ timeout: 15_000 });
+  await expect(page.getByTestId("selo-automatico")).toHaveText(/Automático · (1080|720)p/);
+
+  // Na tela só ficam os controles essenciais.
+  for (const nome of ["Fechar", "Ajustes", "Virar câmera", "Mais devagar", "Mais rápido", "Começar a gravar"]) {
+    await expect(page.getByRole("button", { name: nome }).or(page.getByRole("link", { name: nome }))).toBeVisible();
+  }
 
   await page.getByRole("button", { name: "Ajustes" }).click();
-  await page.getByRole("button", { name: "Trás (melhor imagem)" }).click();
-  await page.getByRole("button", { name: "Alta" }).click();
-  await expect(page.getByText(/Mais nítida\. Cada gravação vai até \d+:\d\d\./)).toBeVisible();
-  const camera = () =>
-    page.locator("video").first().evaluate((v: HTMLVideoElement) => {
-      const t = (v.srcObject as MediaStream | null)?.getVideoTracks()[0];
-      return t ? JSON.stringify(t.getConstraints()) : "";
-    });
-  await expect.poll(camera, { timeout: 10_000 }).toContain("environment");
-  expect(await camera()).toContain("1920");
+  await page.getByRole("tab", { name: "Câmera" }).click();
+  // Câmera em uso com nome e tamanho real da imagem.
+  await expect(page.getByTestId("camera-em-uso")).toContainText(/Imagem de \d+×\d+/);
+  await page.getByText("Avançado", { exact: true }).click();
+  const primeira = page.getByRole("group", { name: "Câmera", exact: true }).getByRole("button").first();
+  await primeira.click();
+  await expect(primeira).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "1080p", exact: true }).click();
+  // A câmera aberta é a escolhida (o id dela está no track de verdade).
+  const usada = () => page.locator("video").first().evaluate((v: HTMLVideoElement) => (v.srcObject as MediaStream | null)?.getVideoTracks()[0]?.getSettings().deviceId ?? "");
+  await expect.poll(usada, { timeout: 10_000 }).not.toBe("");
+
+  // Info técnica: números lidos da câmera, nunca um quadro em pé pedido pelo app.
+  await page.getByText("Info técnica", { exact: true }).click();
+  await expect(page.getByTestId("info-tecnica")).toContainText(/\d+×\d+/);
   await page.getByRole("button", { name: "Pronto" }).click();
 
   await page.reload();
   await page.getByRole("button", { name: "Ajustes" }).click();
-  await expect(page.getByRole("button", { name: "Alta" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Trás (melhor imagem)" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Pronto" }).click();
+  await page.getByRole("tab", { name: "Câmera" }).click();
+  await page.getByText("Avançado", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "1080p", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "Câmera", exact: true }).getByRole("button").first()).toHaveAttribute("aria-pressed", "true");
+  // Tocar fora do painel fecha.
+  await page.getByTestId("fundo-ajustes").click({ position: { x: 30, y: 120 } });
+  await expect(page.getByRole("dialog", { name: "Ajustes" })).toBeHidden();
 
   await gravar(page, 2);
 });

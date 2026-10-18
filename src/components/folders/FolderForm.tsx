@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useTrashToast } from "@/components/trash/TrashToast";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { OptionCard } from "@/components/ui/OptionCard";
 import { Sheet } from "@/components/ui/Sheet";
-import { createFolder, deleteFolder, updateFolder } from "@/lib/folders/actions";
+import { createFolder, updateFolder } from "@/lib/folders/actions";
 import {
   COLOR_LABEL,
   COLOR_VAR,
@@ -19,7 +20,10 @@ import {
   PLATFORMS,
   type FolderColor,
   type FolderSettings,
+  MAX_STYLE_EXAMPLES,
+  MAX_STYLE_SHORT,
 } from "@/lib/folders/schema";
+import { moverParaLixeira } from "@/lib/trash/actions";
 import { PLATFORM_LABELS, formatSeconds, type Platform } from "@/lib/interview/steps";
 import { allowedCutDurations } from "@/lib/rules/cuts";
 import styles from "./folder-form.module.css";
@@ -40,6 +44,7 @@ export function FolderForm({
   ctas: CtaOption[];
 }) {
   const router = useRouter();
+  const showToast = useTrashToast();
   const [v, setV] = useState<FolderFormValues>(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +52,7 @@ export function FolderForm({
   const editing = Boolean(folderId);
   const s = v.settings;
   const set = (patch: Partial<FolderSettings>) => setV((cur) => ({ ...cur, settings: { ...cur.settings, ...patch } }));
+  const setStyle = (patch: NonNullable<FolderSettings["style"]>) => setV((cur) => ({ ...cur, settings: { ...cur.settings, style: { ...cur.settings.style, ...patch } } }));
 
   function pickDuration(seconds: number) {
     // Corte que não cabe mais no vídeo novo vira "sem cortes" até escolher de novo.
@@ -84,17 +90,18 @@ export function FolderForm({
     if (!folderId || busy) return;
     setBusy(true);
     try {
-      const r = await deleteFolder(folderId);
+      const r = await moverParaLixeira("projeto", folderId);
       if (!r.ok) {
         setError(r.error);
         setBusy(false);
         setConfirmDelete(false);
         return;
       }
+      showToast("projeto", folderId, v.name);
       router.push("/projetos");
       router.refresh();
     } catch {
-      setError("Não foi possível apagar agora. Tente de novo.");
+      setError("Não foi possível mover agora. Tente de novo.");
       setBusy(false);
       setConfirmDelete(false);
     }
@@ -125,6 +132,31 @@ export function FolderForm({
           value={v.about}
           maxLength={MAX_ABOUT}
           onChange={(e) => setV({ ...v, about: e.target.value })}
+        />
+        <Field
+          label="Tom de voz do projeto"
+          hint="Opcional. Vale mais que o tom do seu perfil. Ex.: acolhedor, direto, bem-humorado."
+          name="style-tone"
+          value={s.style?.tone ?? ""}
+          maxLength={MAX_STYLE_SHORT}
+          onChange={(e) => setStyle({ tone: e.target.value })}
+        />
+        <Field
+          label="Público do projeto"
+          hint="Opcional. Ex.: mães de primeira viagem, donos de pequenas lojas, jovens da igreja."
+          name="style-audience"
+          value={s.style?.audience ?? ""}
+          maxLength={MAX_STYLE_SHORT}
+          onChange={(e) => setStyle({ audience: e.target.value })}
+        />
+        <Field
+          label="Exemplos de como você fala"
+          hint="Opcional. Cole 1 ou 2 trechos de vídeos seus que ficaram bons. A IA imita o ritmo, sem copiar as frases."
+          multiline
+          name="style-examples"
+          value={s.style?.examples ?? ""}
+          maxLength={MAX_STYLE_EXAMPLES}
+          onChange={(e) => setStyle({ examples: e.target.value })}
         />
       </section>
 
@@ -215,17 +247,17 @@ export function FolderForm({
         </Button>
         {editing ? (
           <Button variant="soft" onClick={() => setConfirmDelete(true)} disabled={busy}>
-            Apagar projeto
+            Mover para a lixeira
           </Button>
         ) : null}
       </div>
       {editing ? <p className={styles.hint}>Mudanças valem só para vídeos novos. Os que já existem não mudam.</p> : null}
 
-      <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Apagar este projeto?" busy={busy}>
-        <p className={styles.lead}>Os vídeos dele não são apagados: viram vídeos soltos.</p>
+      <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Mover este projeto para a lixeira?" busy={busy}>
+        <p className={styles.lead}>Os vídeos dele vão junto. Ficam 7 dias na lixeira e dá para restaurar.</p>
         <div className={styles.actions}>
           <Button onClick={remove} disabled={busy}>
-            {busy ? "Apagando…" : "Apagar projeto"}
+            {busy ? "Movendo…" : "Mover para a lixeira"}
           </Button>
           <Button variant="soft" onClick={() => setConfirmDelete(false)} disabled={busy}>
             Cancelar

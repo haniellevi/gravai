@@ -1,6 +1,7 @@
 import { ArrowRight, FolderOpen, Video, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { nextStepHref } from "@/lib/project/next-step";
+import { TrashMenu } from "@/components/trash/TrashMenu";
 import { MoveVideo, type FolderChoice } from "./MoveVideo";
 import { origemDoProjeto } from "./origens";
 import styles from "./ProjectRow.module.css";
@@ -35,7 +36,7 @@ export function ProjectRow({ project, move }: { project: ProjectRowData; move?: 
   const concluido = etapa.indice >= TOTAL_ETAPAS;
 
   return (
-    <article className={styles.proj} aria-labelledby={`proj-${project.id}`}>
+    <article className={styles.proj} data-hold-menu aria-labelledby={`proj-${project.id}`}>
       <div className={styles.thumb} role="img" aria-label={`Sem capa ainda; origem: ${origem.nome}`}>
         <Origem size={24} strokeWidth={2} aria-hidden />
       </div>
@@ -61,6 +62,7 @@ export function ProjectRow({ project, move }: { project: ProjectRowData; move?: 
           <Acao size={17} strokeWidth={2} aria-hidden />
           {etapa.acao}
         </Link>
+        <TrashMenu kind="video" id={project.id} title={project.title} />
       </div>
     </article>
   );

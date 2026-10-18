@@ -4,9 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import styles from "@/components/record/record.module.css";
 import { clock } from "@/components/script/format";
 import scriptStyles from "@/components/script/script.module.css";
+import { TrashMenu } from "@/components/trash/TrashMenu";
 import { Button } from "@/components/ui/Button";
 import { supabaseDeliveryDb } from "@/lib/delivery/db";
-import { WARN_DAYS, daysLeft } from "@/lib/delivery/rules";
 import { SIGNED_URL_SECONDS, needsRegeneration, type ExportRow } from "@/lib/delivery/service";
 import { PLATFORM_LABELS, PLATFORMS } from "@/lib/interview/steps";
 import { createServerClient } from "@/lib/supabase/server";
@@ -49,7 +49,6 @@ export default async function EntregaPage({ params }: { params: Promise<{ id: st
     ready && !generating && final?.createdAt
       ? needsRegeneration(new Date(final.createdAt), await db.latestRecordingAt(id), project.scriptStale)
       : false;
-  const soonest = ready ? Math.min(...exports.map((e) => daysLeft(new Date(e.expiresAt), new Date()))) : null;
 
   return (
     <main className={styles.page}>
@@ -57,16 +56,12 @@ export default async function EntregaPage({ params }: { params: Promise<{ id: st
         <Button href={`/projetos/${id}/gravar/aprovar`} variant="soft" icon={ArrowLeft}>
           Voltar
         </Button>
+        <TrashMenu kind="video" id={id} title="este vídeo" then="/projetos" />
       </nav>
       <h1 className={styles.title}>{ready ? "Seus vídeos estão prontos." : "Gerar vídeos"}</h1>
       {ready ? null : (
         <p className={styles.hint}>Montamos o vídeo final e um vídeo para cada corte. Leva alguns minutos.</p>
       )}
-      {ready && soonest !== null && soonest <= WARN_DAYS ? (
-        <p className={styles.alert} role="status">
-          {soonest === 0 ? "Estes arquivos somem hoje." : `Estes arquivos somem em ${soonest} ${soonest === 1 ? "dia" : "dias"}.`} Baixe antes.
-        </p>
-      ) : null}
       {recutting ? <JobPanel projectId={id} initial={job} /> : null}
       {ready && job?.status === "failed" ? (
         <p className={styles.alert} role="alert">

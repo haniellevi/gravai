@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import styles from "./record.module.css";
 
@@ -51,20 +52,51 @@ export function PrompterSettings({
   prefs,
   onChange,
   onClose,
-  children,
+  cameraTab,
 }: {
   prefs: PrompterPrefs;
   onChange: (p: PrompterPrefs) => void;
   onClose: () => void;
-  /** Ajustes de câmera e som, acima dos do texto. */
-  children?: ReactNode;
+  /** Conteúdo da aba Câmera. */
+  cameraTab: ReactNode;
 }) {
   const set = (patch: Partial<PrompterPrefs>) => onChange({ ...prefs, ...patch });
+  const [tab, setTab] = useState<"texto" | "camera">("texto");
   const chip = (on: boolean) => `${styles.chip} ${on ? styles.chipOn : ""}`;
+  // Tecla Esc fecha, como tocar fora.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
-    <div className={styles.sheet} role="dialog" aria-label="Ajustes">
-      {children}
-      <p className={styles.groupTitle}>Texto</p>
+    <>
+    {/* Tocar fora do painel fecha. */}
+    <div className={styles.backdrop} aria-hidden data-testid="fundo-ajustes" onClick={onClose} />
+    <div className={styles.sheet} role="dialog" aria-modal="true" aria-label="Ajustes">
+      <div className={styles.sheetTop}>
+      <div className={styles.tabs} role="tablist" aria-label="Ajustes">
+        <button type="button" role="tab" aria-selected={tab === "texto"} className={chip(tab === "texto")} onClick={() => setTab("texto")}>
+          Texto
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "camera"} className={chip(tab === "camera")} onClick={() => setTab("camera")}>
+          Câmera
+        </button>
+      </div>
+        <button type="button" className={styles.sheetClose} aria-label="Fechar ajustes" onClick={onClose}>
+          <X size={22} strokeWidth={2} aria-hidden />
+        </button>
+      </div>
+      {tab === "camera" ? cameraTab : <TextTab prefs={prefs} set={set} chip={chip} />}
+      <Button onClick={onClose}>Pronto</Button>
+    </div>
+    </>
+  );
+}
+
+function TextTab({ prefs, set, chip }: { prefs: PrompterPrefs; set: (p: Partial<PrompterPrefs>) => void; chip: (on: boolean) => string }) {
+  return (
+    <>
       <label className={styles.setting}>
         Tamanho da letra
         <input type="range" min={20} max={40} step={1} value={prefs.fontPx} onChange={(e) => set({ fontPx: Number(e.target.value) })} />
@@ -102,7 +134,6 @@ export function PrompterSettings({
           </button>
         </div>
       </div>
-      <Button onClick={onClose}>Pronto</Button>
-    </div>
+    </>
   );
 }

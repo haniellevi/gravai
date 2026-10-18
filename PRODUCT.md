@@ -39,7 +39,7 @@ Do material ao post, num lugar só. Começa antes do vídeo existir (no livro ou
 
 ## Brand Commitments
 
-- Nome provisório: "Video Facil".
+- Nome: **Gravaí** (definido em 2026-10-13; antes "Video Facil"). Identidade visual em `design/marca/identidade.html`.
 - Visual pedido pelo usuário: bonito, colorido, com bom gosto — cores vivas e bem trabalhadas (não tímido, não neutro corporativo).
 - Preferência registrada (2026-10-13): padrão da categoria executado com capricho, sem metáfora de mundo; régua de acabamento = Canva. Sem roxo de IA.
 - Evitar: cara de ferramenta técnica, infantil/gamificado, genérico de IA (gradiente roxo, neon), sério/corporativo.

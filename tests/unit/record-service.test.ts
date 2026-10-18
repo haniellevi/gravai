@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { RecordDb } from "@/lib/record/db";
-import { MAX_FILE_BYTES, MSG_FILE_TOO_BIG } from "@/lib/record/limits";
+import { MAX_FILE_BYTES, MSG_FILE_TOO_BIG, MSG_STORAGE_FULL } from "@/lib/record/limits";
 import { approveWith, discardRecordingWith, finishRecordingWith, startRecordingWith } from "@/lib/record/service";
 
 type Ready = { id: string; kind: "take" | "block" | "external"; blockId: string | null; path: string; durationSeconds: number | null };
 
-function fakeDb(opts: { mainSeconds?: number; blocks?: string[]; ready?: Ready[]; noProject?: boolean; status?: string; removeFails?: boolean } = {}) {
+function fakeDb(opts: { mainSeconds?: number; blocks?: string[]; ready?: Ready[]; noProject?: boolean; status?: string; removeFails?: boolean; full?: boolean } = {}) {
   let n = 0;
   const rows = new Map<string, { kind: Ready["kind"]; blockId: string | null; path: string; status: string }>();
   const readyList: Ready[] = [...(opts.ready ?? [])];
@@ -36,6 +36,8 @@ function fakeDb(opts: { mainSeconds?: number; blocks?: string[]; ready?: Ready[]
     }),
     readyRows: vi.fn(async () => [...readyList]),
     setProjectStatus: vi.fn(async () => true),
+    storageFits: vi.fn(async () => !opts.full),
+    uploadingRow: vi.fn(async () => null),
     removeFiles: vi.fn(async (_p: string[]) => {
       if (opts.removeFails) throw new Error("boom");
     }),
@@ -58,11 +60,27 @@ describe("startRecordingWith", () => {
     await expect(startRecordingWith(fakeDb({ noProject: true }), { projectId: "p1", kind: "take", blockId: null, mime: "video/webm" })).rejects.toThrow("Projeto não encontrado.");
     await expect(startRecordingWith(fakeDb(), { projectId: "p1", kind: "take", blockId: null, mime: "image/png" })).rejects.toThrow();
   });
+  it("repassa o corte 9:16 para a gravação (ou nulo)", async () => {
+    const db = fakeDb();
+    const crop = { x: 656, y: 0, w: 606, h: 1080 };
+    await startRecordingWith(db, { projectId: "p1", kind: "take", blockId: null, mime: "video/mp4;codecs=avc1,mp4a", crop });
+    await startRecordingWith(db, { projectId: "p1", kind: "take", blockId: null, mime: "video/webm" });
+    expect(db.insertUploading).toHaveBeenNthCalledWith(1, expect.objectContaining({ crop }));
+    expect(db.insertUploading).toHaveBeenNthCalledWith(2, expect.objectContaining({ crop: null }));
+  });
   it("aceita mime com codecs e bloco válido", async () => {
     const db = fakeDb();
     const r = await startRecordingWith(db, { projectId: "p1", kind: "block", blockId: "b1", mime: "video/webm;codecs=vp9,opus" });
     expect(r.id).toBe("r1");
     expect(db.insertUploading).toHaveBeenCalledOnce();
+  });
+});
+
+describe("finishRecordingWith — cota", () => {
+  it("recusa quando o espaço acabou, sem marcar a gravação como pronta", async () => {
+    const db = fakeDb({ full: true });
+    await expect(finishRecordingWith(db, "r1", { sizeBytes: 10, durationSeconds: 1 })).rejects.toThrow(MSG_STORAGE_FULL);
+    expect(db.markReady).not.toHaveBeenCalled();
   });
 });
 

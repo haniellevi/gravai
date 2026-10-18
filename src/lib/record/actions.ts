@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
+import { parseCrop } from "./capture";
 import { supabaseRecordDb } from "./db";
 import type { RecordMode } from "./rules";
 import {
@@ -15,7 +16,7 @@ import {
   finishRecordingWith,
   startRecordingWith,
 } from "./service";
-import { MSG_FILE_TOO_BIG } from "./limits";
+import { MSG_FILE_TOO_BIG, MSG_STORAGE_FULL } from "./limits";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MSG_EXPIRED = "Sua sessão expirou. Entre de novo.";
@@ -27,6 +28,7 @@ const SAFE = new Set([
   MSG_PROJECT_NOT_FOUND,
   MSG_RECORDING_NOT_FOUND,
   MSG_FILE_TOO_BIG,
+  MSG_STORAGE_FULL,
   "Para um vídeo de 5 min, grave por blocos.",
   "Formato de vídeo não aceito.",
 ]);
@@ -52,6 +54,7 @@ export async function startRecording(input: {
   kind: "take" | "block" | "external";
   blockId: string | null;
   mime: string;
+  crop?: unknown;
 }): Promise<{ id: string; path: string } | ActionError> {
   if (!input || typeof input.projectId !== "string" || !UUID.test(input.projectId)) return { error: MSG_PROJECT_NOT_FOUND };
   if (!KINDS.includes(input.kind) || typeof input.mime !== "string") return { error: MSG_UNAVAILABLE };
@@ -64,6 +67,7 @@ export async function startRecording(input: {
       kind: input.kind,
       blockId: input.blockId ?? null,
       mime: input.mime,
+      crop: parseCrop(input.crop),
     });
   } catch (e) {
     return failure(e);

@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { claimJob, requeueStale } from "./claim";
 import { handle } from "./jobs";
-import { purgeExpired } from "./purge";
+import { purgeTrash, sweepOrphans } from "./purge";
 
 const POLL_MS = 5_000;
 // 0 (padrão) = fica ligado esperando pedidos (VPS); >0 = sai após esse tempo ocioso (máquinas que ligam sob demanda).
@@ -23,7 +23,10 @@ async function main() {
   for (;;) {
     if (Date.now() - lastPurge > PURGE_EVERY_MS) {
       lastPurge = Date.now();
-      await purgeExpired(db).then((n) => n > 0 && console.log(`[worker] ${n} arquivos vencidos apagados`)).catch((e) => console.error("[worker] limpeza falhou:", e.message));
+      await sweepOrphans(db).then((n) => n > 0 && console.log(`[worker] ${n} arquivos órfãos apagados`)).catch((e) => console.error("[worker] limpeza falhou:", e.message));
+      await purgeTrash(db)
+        .then((n) => (n.videos > 0 || n.folders > 0) && console.log(`[worker] lixeira: ${n.videos} vídeo(s) e ${n.folders} projeto(s) apagados de vez`))
+        .catch((e) => console.error("[worker] limpeza da lixeira falhou:", e.message));
     }
     await requeueStale(db);
     const job = await claimJob(db);
