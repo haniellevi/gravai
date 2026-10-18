@@ -121,6 +121,13 @@ export async function scoreClosing(texts: string[], context: string): Promise<nu
     : (await import("./typesafe")).scoreClosing(texts, context);
 }
 
+/** Nota (0..1) da ideia de capa de cada texto (o jev). */
+export async function scoreCovers(texts: string[], context: string): Promise<number[]> {
+  return useMock()
+    ? (await import("./mock")).scoreCovers(texts, context)
+    : (await import("./typesafe")).scoreCovers(texts, context);
+}
+
 /** Nota (0..1) do gancho de cada texto (o jev). */
 export async function scoreHooks(texts: string[]): Promise<number[]> {
   return (await reviewExcerpts(texts, { restart: false })).hook;
