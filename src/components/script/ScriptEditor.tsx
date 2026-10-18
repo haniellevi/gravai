@@ -267,7 +267,7 @@ export function ScriptEditor({
         />
       ) : null}
 
-      <VideoInfo info={info} />
+      <VideoInfo info={info} projectId={projectId} />
 
       <div className={styles.bottom}>
         <Button href={`/projetos/${projectId}/gravar`} icon={Video} className={styles.full}>

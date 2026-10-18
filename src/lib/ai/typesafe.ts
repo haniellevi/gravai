@@ -30,6 +30,14 @@ const CLOSING_LEVELS = [
   "Fecho excelente: frase final memorável, paga a promessa e o pedido é específico e fácil de cumprir",
 ] as const;
 
+const COVER_LEVELS = [
+  "Capa sem ponto focal, com texto demais ou genérica: ninguém pararia para olhar",
+  "Capa fraca: o tema aparece, mas não desperta curiosidade nem se lê de relance",
+  "Capa razoável: clara, com algum interesse, mas parecida com muitas outras",
+  "Capa forte: uma ideia só, lê rápido no celular, desperta curiosidade",
+  "Capa excelente: uma ideia só, lê de relance no celular, curiosidade sem mentira e visual que não parece feito por IA",
+] as const;
+
 let client: TypeSafeClient | null = null;
 function getClient(): TypeSafeClient {
   if (!process.env.TYPESAFE_API_KEY) throw new AiError("A análise não está configurada. Tente mais tarde.");
@@ -120,6 +128,32 @@ export async function reviewExcerpts(texts: string[], opts: { restart: boolean }
       hook: texts.map((_, i) => clamp((a[`h${i}`].score ?? 0) / max)),
       restart: opts.restart ? texts.map((_, i) => (i > 0 ? clamp(a[`r${i}`].noul ?? 0) : 0)) : null,
     };
+  } catch (e) {
+    if (e instanceof AiError) throw e;
+    throw new AiError(undefined, { code: "provider", cause: e });
+  }
+}
+
+/** Nota (0..1) de cada ideia de capa (palavras, estilo e cena). */
+export async function scoreCovers(texts: string[], context: string): Promise<number[]> {
+  if (texts.length === 0) return [];
+  try {
+    const questions = Object.fromEntries(
+      texts.map((t, i) => [
+        `v${i}`,
+        score(
+          {
+            pergunta: "Quanto esta ideia de capa de vídeo curto chamaria atenção no feed, lida de relance no celular?",
+            capa: t,
+            contexto: context,
+          },
+          COVER_LEVELS,
+        ),
+      ]),
+    );
+    const res = await getClient().systemOne({ state: { contexto: context }, questions, model: JUDGE_MODEL });
+    const max = COVER_LEVELS.length - 1;
+    return texts.map((_, i) => Math.min(1, Math.max(0, (res.answers as Record<string, { score: number }>)[`v${i}`].score / max)));
   } catch (e) {
     if (e instanceof AiError) throw e;
     throw new AiError(undefined, { code: "provider", cause: e });

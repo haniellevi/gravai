@@ -588,3 +588,44 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.coverBox,
+.coverBoxCompact {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.coverBoxCompact {
+  margin: var(--space-xs) 0;
+}
+
+.coverHint {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.coverBest {
+  display: inline-block;
+  margin-left: var(--space-xs);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-pill);
+  background: var(--primary-tint);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coverWords,
+.coverWhy {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.coverError {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--rec-red);
+}

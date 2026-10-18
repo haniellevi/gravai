@@ -11,6 +11,7 @@ export type MockFn =
   | "generateJson"
   | "scoreViral"
   | "scoreClosing"
+  | "scoreCovers"
   | "checkScript"
   | "reviewExcerpts";
 
@@ -102,6 +103,11 @@ export async function scoreViral(titles: string[], _context: string): Promise<nu
 
 export async function scoreClosing(texts: string[], _context: string): Promise<number[]> {
   const v = next("scoreClosing") as number[];
+  return texts.map((_, i) => v[i % v.length]);
+}
+
+export async function scoreCovers(texts: string[], _context: string): Promise<number[]> {
+  const v = next("scoreCovers") as number[];
   return texts.map((_, i) => v[i % v.length]);
 }
 

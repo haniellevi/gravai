@@ -2,19 +2,20 @@
 
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
-import { PLATFORM_LABELS, PLATFORMS, type Platform } from "@/lib/interview/steps";
+import { PLATFORM_LABELS, PLATFORMS, type CoverOption, type Platform } from "@/lib/interview/steps";
+import { CoverOptions } from "./CoverOptions";
 import styles from "./script.module.css";
 
-export type MainInfo = { coverPrompt: string | null; descriptions: Partial<Record<Platform, string>> };
+export type MainInfo = { coverPrompt: string | null; covers?: CoverOption[]; descriptions: Partial<Record<Platform, string>> };
 
 /** Capa e descrição de cada plataforma do vídeo principal, prontas para copiar. */
-export function VideoInfo({ info }: { info: MainInfo }) {
+export function VideoInfo({ info, projectId }: { info: MainInfo; projectId: string }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const hasCover = Boolean(info.covers?.length || info.coverPrompt);
   const items = [
-    ...(info.coverPrompt ? [{ key: "capa", label: "Capa (prompt para IA)", text: info.coverPrompt }] : []),
     ...PLATFORMS.flatMap((p) => (info.descriptions[p] ? [{ key: p, label: `Descrição · ${PLATFORM_LABELS[p]}`, text: info.descriptions[p] as string }] : [])),
   ];
-  if (items.length === 0) return null;
+  if (items.length === 0 && !hasCover) return null;
 
   async function copy(key: string, text: string) {
     try {
@@ -32,6 +33,7 @@ export function VideoInfo({ info }: { info: MainInfo }) {
         Capa e descrições
       </h2>
       <p className={styles.cutsLead}>Prontas para colar ao publicar o vídeo.</p>
+      {hasCover ? <CoverOptions options={info.covers ?? []} legacyPrompt={info.coverPrompt} projectId={projectId} /> : null}
       <ul className={styles.infoList}>
         {items.map((it) => (
           <li key={it.key} className={styles.infoCard}>

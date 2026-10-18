@@ -3,21 +3,56 @@ import { z } from "zod";
 import { PLATFORM_LABELS, PLATFORMS, isPlatform, type Platform } from "@/lib/interview/steps";
 import { estimateSeconds } from "@/lib/rules/duration";
 import { styleLines } from "@/lib/ai/agents/contexto";
+import type { CoverOption } from "@/lib/interview/steps";
 import type { FolderStyle } from "@/lib/folders/schema";
 import { finishDescriptions, type Descriptions } from "./generate";
 
 /** Posições (1..n) dos blocos do script; `descriptions` já com a chamada para ação na última linha. */
-export type Cut = { id: string; start: number; end: number; title: string; coverPrompt: string | null; descriptions: Descriptions };
+export type Cut = {
+  id: string;
+  start: number;
+  end: number;
+  title: string;
+  coverPrompt: string | null;
+  descriptions: Descriptions;
+  /** As 3 opções do agente de capas (a melhor primeiro); `coverPrompt` é o prompt da melhor. */
+  coverOptions?: CoverOption[];
+};
 
 export const MAX_CUTS = 20;
 export const MAX_CUT_TITLE = 100;
-const MAX_COVER = 1000;
+const MAX_COVER = 2000;
+const MAX_COVER_OPTIONS = 3;
+const MAX_COVER_FIELD = 200;
 const MAX_DESCRIPTION = 2200;
 /** Um corte pode passar do alvo até esta folga; a IA que passar disso é aparada. */
 const OVER = 1.3;
 const UNDER = 0.3;
 
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+
+const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.slice(0, n) : "");
+
+/** Opções de capa vindas do navegador: no máximo 3, só objetos com prompt, textos aparados. Não é lista = ignora. */
+export function sanitizeCoverOptions(input: unknown): CoverOption[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const out: CoverOption[] = [];
+  for (const o of input) {
+    if (!isObj(o) || typeof o.prompt !== "string" || o.prompt.trim() === "") continue;
+    const score = typeof o.score === "number" && Number.isFinite(o.score) ? Math.min(1, Math.max(0, o.score)) : 0;
+    out.push({
+      type: clip(o.type, 40),
+      text: clip(o.text, 500),
+      words: clip(o.words, MAX_COVER_FIELD),
+      why: clip(o.why, MAX_COVER_FIELD),
+      prompt: clip(o.prompt, MAX_COVER),
+      score,
+      best: o.best === true,
+    });
+    if (out.length >= MAX_COVER_OPTIONS) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
 
 export type CutsResult = { ok: true; cuts: Cut[] } | { ok: false; error: string };
 
@@ -46,7 +81,8 @@ export function validateCuts(input: unknown, blockCount: number): CutsResult {
         descriptions[p] = d;
       }
     }
-    cuts.push({ id, start: start as number, end: end as number, title: title.trim(), coverPrompt: cover?.trim() || null, descriptions });
+    const coverOptions = sanitizeCoverOptions(c.coverOptions);
+    cuts.push({ id, start: start as number, end: end as number, title: title.trim(), coverPrompt: cover?.trim() || null, descriptions, ...(coverOptions ? { coverOptions } : {}) });
   }
   cuts.sort((a, b) => a.start - b.start);
   for (let i = 1; i < cuts.length; i++) {

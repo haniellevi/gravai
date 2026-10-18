@@ -11,7 +11,8 @@
     "test:integration": "bash scripts/test-integration.sh",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/types.ts",
     "smoke:r2": "node --import tsx scripts/r2-smoke.ts",
-    "eval:roteiro": "NODE_USE_ENV_PROXY=1 node --conditions=react-server --import tsx scripts/eval-roteiro.ts"
+    "eval:roteiro": "NODE_USE_ENV_PROXY=1 node --conditions=react-server --import tsx scripts/eval-roteiro.ts",
+    "eval:capas": "NODE_USE_ENV_PROXY=1 node --conditions=react-server --import tsx scripts/eval-capas.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",
