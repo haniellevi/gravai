@@ -72,11 +72,15 @@ export type Interview = {
   scriptChecks?: string[];
   /** Opções dos agentes de roteiro da última geração (a melhor vem primeiro), para a tela mostrar e trocar. */
   scriptAgents?: ScriptAgentOptions;
+  /** Horários (ms) dos últimos "Refazer capas", para a trava de 10 por hora. */
+  coverRegens?: number[];
 };
 
 export type HookOption = { type: string; text: string; onScreen: string; visual: string; score: number; best: boolean };
 export type ClosingOption = { type: string; text: string; conclusion: string; cta: string; score: number; best: boolean };
-export type ScriptAgentOptions = { hooks?: HookOption[]; closing?: ClosingOption[] };
+/** Uma opção de capa: `type` é o id do estilo da capa; `prompt` é o texto pronto para colar no ChatGPT. */
+export type CoverOption = { type: string; text: string; words: string; why: string; prompt: string; score: number; best: boolean };
+export type ScriptAgentOptions = { hooks?: HookOption[]; closing?: ClosingOption[]; covers?: CoverOption[] };
 
 /** Valor de cada pergunta. */
 export type StepValues = {

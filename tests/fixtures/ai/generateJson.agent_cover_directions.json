@@ -1,0 +1,5 @@
+{ "options": [
+  { "style": "rosto_emocao", "words": "COMECE PEQUENO", "emotion": "sorriso de quem descobriu", "gaze": "texto", "colors": { "main": "azul-marinho", "support": "off-white", "accent": "amarelo" }, "facePosition": "esquerda", "textPosition": "lado", "scene": "mesa de trabalho perto da janela, luz da manhã", "trigger": "rosto", "why": "O rosto aliviado mostra o resultado antes de o vídeo começar." },
+  { "style": "pergunta", "words": "POR QUE VOCÊ DESISTE?", "emotion": "dúvida sincera", "gaze": "camera", "colors": { "main": "grafite", "support": "branco", "accent": "laranja" }, "facePosition": "direita", "textPosition": "cima", "scene": "sala de casa com sofá e luz natural de fim de tarde", "trigger": "curiosidade", "why": "Uma pergunta incômoda abre a dúvida que o vídeo responde." },
+  { "style": "cena_real", "words": "MINHA ROTINA REAL", "emotion": "calma", "gaze": "texto", "colors": { "main": "verde-escuro", "support": "bege", "accent": "amarelo" }, "facePosition": "centro", "textPosition": "baixo", "scene": "cozinha de uma casa comum, café na bancada", "trigger": "contraste", "why": "Uma cena do dia a dia passa verdade e confiança." }
+] }
