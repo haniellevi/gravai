@@ -5,6 +5,7 @@ import { ScriptNotice } from "@/components/script/ScriptNotice";
 import { AiError } from "@/lib/ai/schemas";
 import { validateCuts } from "@/lib/script/cuts";
 import { isPlatform, type Platform } from "@/lib/interview/steps";
+import type { CoverOption } from "@/lib/interview/steps";
 import type { BlockKind } from "@/lib/script/generate";
 import { generateScript } from "@/lib/script/actions";
 import { loadVersions } from "@/lib/script/versions-db";
@@ -78,6 +79,10 @@ export default async function ScriptPage({ params }: { params: Promise<{ id: str
   const checks = "scriptChecks" in interview && Array.isArray(interview.scriptChecks) ? interview.scriptChecks.filter((c) => typeof c === "string") : [];
   const chosen = "titles" in interview && interview.titles && typeof interview.titles === "object" && "chosen" in interview.titles ? interview.titles.chosen : null;
 
+  // As opções de capa foram gravadas pelo servidor (agente de capas); projetos antigos não têm.
+  const agents = (interview as { scriptAgents?: { covers?: unknown } }).scriptAgents;
+  const covers = Array.isArray(agents?.covers) ? (agents.covers as CoverOption[]) : undefined;
+
   const cutSeconds = "cutSeconds" in interview && typeof interview.cutSeconds === "number" ? interview.cutSeconds : null;
   const cutsRaw = validateCuts(project.cuts, rows.length);
 
@@ -105,7 +110,7 @@ export default async function ScriptPage({ params }: { params: Promise<{ id: str
       cutSeconds={cutSeconds}
       initialCuts={cutsRaw.ok ? cutsRaw.cuts : []}
       initialVersions={initialVersions}
-      info={{ coverPrompt: project.cover_prompt, descriptions }}
+      info={{ coverPrompt: project.cover_prompt, covers, descriptions }}
     />
   );
 }

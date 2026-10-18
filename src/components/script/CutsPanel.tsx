@@ -8,6 +8,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { PLATFORM_LABELS, PLATFORMS } from "@/lib/interview/steps";
 import { MAX_CUT_TITLE, MAX_CUTS, cutSecondsOf, type Cut } from "@/lib/script/cuts";
 import { saveCuts, suggestCuts } from "@/lib/script/actions";
+import { CoverOptions } from "./CoverOptions";
 import { clock, cutVar } from "./format";
 import styles from "./script.module.css";
 
@@ -170,10 +171,15 @@ export function CutsPanel({
               {c.coverPrompt || descriptions.length > 0 ? (
                 <details className={styles.cutMore}>
                   <summary>Capa e descrições</summary>
-                  {c.coverPrompt ? (
-                    <p>
-                      <b>Capa:</b> {c.coverPrompt}
-                    </p>
+                  {c.coverPrompt || c.coverOptions?.length ? (
+                    <CoverOptions
+                      compact
+                      options={c.coverOptions ?? []}
+                      legacyPrompt={c.coverPrompt}
+                      projectId={projectId}
+                      cutId={c.id}
+                      onRegenerated={(opts) => onChange(cuts.map((x) => (x.id === c.id ? { ...x, coverOptions: opts, coverPrompt: opts.find((o) => o.best)?.prompt ?? x.coverPrompt } : x)))}
+                    />
                   ) : null}
                   {descriptions.map((p) => (
                     <p key={p}>
