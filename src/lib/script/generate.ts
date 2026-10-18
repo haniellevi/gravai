@@ -10,6 +10,7 @@ import { estimateSeconds } from "@/lib/rules/duration";
 import { buildScriptUser, SCRIPT_SYSTEM, type ScriptProfile } from "./prompts";
 import { conclusaoCtaAgent, ctaObjective, type ClosingScoreFn } from "@/lib/ai/agents/conclusao-cta";
 import type { AgentContext } from "@/lib/ai/agents/contexto";
+import { capasAgent, type CoverScoreFn, type ScoredCover } from "@/lib/ai/agents/capas";
 import { hooksAgent, type HookScoreFn } from "@/lib/ai/agents/hooks";
 import { scriptReviewWarnings, type ReviewFn } from "./review";
 
@@ -55,8 +56,8 @@ export type ScriptDeps = {
   check: (text: string, opts: { tone: string; cta?: string }) => Promise<ScriptCheck>;
   /** Gancho por trecho e recomeço (jev). Opcional: sem ele, não há esse aviso. */
   review?: ReviewFn;
-  /** Agentes de gancho e de fecho (notas do jev). Opcional: sem ele, o script sai só com o prompt-base. */
-  agents?: { scoreHook: HookScoreFn; scoreClosing: ClosingScoreFn };
+  /** Agentes de gancho, fecho e capa (notas do jev). Opcional: sem ele, o script sai só com o prompt-base; sem `scoreCover`, a capa vem do prompt-base. */
+  agents?: { scoreHook: HookScoreFn; scoreClosing: ClosingScoreFn; scoreCover?: CoverScoreFn };
   /** Só para testes. */
   now?: () => number;
 };
@@ -73,9 +74,12 @@ const RETRY_BUDGET_MS = 30_000;
 const HOOK_AGENT_MS = 50_000;
 const CLOSING_AGENT_MS = 60_000;
 const CLOSING_START_BEFORE_MS = 170_000;
+// Capas: 190 s + 70 s = 260 s, e ainda sobram os ~15 s do checkScript dentro dos 300 s da função.
+const COVER_AGENT_MS = 70_000;
+const COVER_START_BEFORE_MS = 190_000;
 
 /** Resolve com o valor ou rejeita se passar do tempo. */
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const limit = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error("tempo esgotado")), ms);
@@ -224,6 +228,21 @@ export async function generateScriptWith(deps: ScriptDeps, projectId: string): P
   }
   problems = validateScript(blocks, mainSeconds);
 
+  // Capas: 3 opções de estilos diferentes; a melhor vira o prompt de capa. Falha ou demora = vale a capa do prompt-base.
+  let covers: ScoredCover[] = [];
+  const elapsedForCovers = (deps.now?.() ?? Date.now()) - t0;
+  if (deps.agents?.scoreCover && elapsedForCovers < COVER_START_BEFORE_MS) {
+    try {
+      covers = await withTimeout(
+        capasAgent({ ai, score: deps.agents.scoreCover }, { ctx: agentCtx, hook: hook?.text }),
+        Math.min(COVER_AGENT_MS, 285_000 - elapsedForCovers),
+      );
+    } catch (e) {
+      console.error("[script] agente de capas falhou", e instanceof Error ? e.message : e);
+    }
+  }
+  const bestCover = covers.find((c) => c.best);
+
   const checks: string[] = [];
   if (i.ctaId && !cta) checks.push("A chamada para ação que você escolheu foi removida do perfil; o script saiu sem ela.");
   const full = blocks.map((b) => b.text).join("\n\n");
@@ -247,11 +266,12 @@ export async function generateScriptWith(deps: ScriptDeps, projectId: string): P
   const { scriptWarning: _w, scriptChecks: _c, scriptAgents: _a, ...rest } = i;
   const interview: Interview = {
     ...rest,
-    ...(hooks.length > 0 || closing.length > 0
+    ...(hooks.length > 0 || closing.length > 0 || covers.length > 0
       ? {
           scriptAgents: {
             ...(hooks.length > 0 ? { hooks: hooks.map(({ type, text, onScreen, visual, score, best }) => ({ type, text, onScreen, visual, score, best })) } : {}),
             ...(closing.length > 0 ? { closing: closing.map(({ type, text, conclusion, cta: c, score, best }) => ({ type, text, conclusion, cta: c, score, best })) } : {}),
+            ...(covers.length > 0 ? { covers: covers.map(({ type, text, words, why, prompt, score, best }) => ({ type, text, words, why, prompt, score, best })) } : {}),
           },
         }
       : {}),
@@ -261,7 +281,7 @@ export async function generateScriptWith(deps: ScriptDeps, projectId: string): P
   const ok = await deps.db.saveScript(projectId, {
     blocks,
     descriptions: finishDescriptions(script.mainDescriptions, platforms, ctaLine),
-    coverPrompt: script.mainCoverPrompt.trim() || null,
+    coverPrompt: bestCover?.prompt ?? (script.mainCoverPrompt.trim() || null),
     interview,
   });
   if (!ok) throw new Error(MSG_SAVE_FAILED);
