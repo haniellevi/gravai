@@ -133,3 +133,11 @@ describe("validateDirection: cores e emoção proibidas", () => {
     expect(validateDirection({ ...direction, emotion: "brilhante e futurista" }, source)).not.toEqual([]);
   });
 });
+
+describe("buildCoverPrompt: pontuação da cena", () => {
+  it("não duplica o ponto quando a cena já termina com ponto", () => {
+    const p = buildCoverPrompt({ ...direction, scene: "Quarto real ao anoitecer, com luz suave." }, brief);
+    expect(p).not.toContain("..");
+    expect(p).toContain("luz suave. Luz natural do ambiente.");
+  });
+});

@@ -54,7 +54,7 @@ export function buildCoverPrompt(d: CoverDirection, b: CoverBrief): string {
   const textSpot = d.textPosition === "baixo" && !tall ? "na parte de cima" : TEXT_SPOT[d.textPosition];
   return [
     `Uso: ${use}. Fotografia realista (photorealistic), foto de celular de um momento real, no heavy retouching.`,
-    `Cena: ${clip(d.scene, 240)}. Luz natural do ambiente.`,
+    `Cena: ${clip(d.scene, 240).replace(/[.\s]+$/, "")}. Luz natural do ambiente.`,
     `Pessoa: use a Imagem 1 como referência do rosto. Mantenha rosto, traços, tom de pele e cabelo exatamente como na Imagem 1. Expressão: ${clip(d.emotion, 80)}. A pessoa ${GAZE_VERB[d.gaze]}.`,
     `Composição: estilo "${style.label}". ${zone} A pessoa ocupa cerca de 30% do quadro, ${FACE_SIDE[d.facePosition]}.`,
     `Texto: "${words}" escrito uma única vez, letras grossas sem serifa, em ${clip(d.colors.accent, 40)}, com contorno ou sombra para dar contraste, ${textSpot}. Sem texto extra.`,
