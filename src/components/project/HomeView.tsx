@@ -59,7 +59,7 @@ export function HomeView({
               const Origem = origemDoProjeto(p.source_kind).icon;
               const pasta = p.folders?.name;
               return (
-                <li key={p.id} className={styles.recentItem}>
+                <li key={p.id} className={styles.recentItem} data-hold-menu>
                   <Link href={p.missingParts ? `/projetos/${p.id}/gravar` : nextStepHref(p)} className={styles.recentCard}>
                     <span className={styles.recentIc}>
                       <Origem size={22} strokeWidth={2} aria-hidden />
@@ -88,7 +88,7 @@ export function HomeView({
           {listaPastas.map((f) => {
             const cor = COLOR_VAR[isFolderColor(f.color) ? f.color : "rosa"];
             return (
-              <li key={f.id} className={styles.proj}>
+              <li key={f.id} className={styles.proj} data-hold-menu>
                 <Link href={`/pastas/${f.id}`} className={styles.projMain}>
                   <span className={styles.projCover} style={{ background: cor }} aria-hidden>
                     {f.name.trim().charAt(0).toUpperCase()}

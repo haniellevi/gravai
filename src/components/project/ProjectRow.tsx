@@ -36,7 +36,7 @@ export function ProjectRow({ project, move }: { project: ProjectRowData; move?: 
   const concluido = etapa.indice >= TOTAL_ETAPAS;
 
   return (
-    <article className={styles.proj} aria-labelledby={`proj-${project.id}`}>
+    <article className={styles.proj} data-hold-menu aria-labelledby={`proj-${project.id}`}>
       <div className={styles.thumb} role="img" aria-label={`Sem capa ainda; origem: ${origem.nome}`}>
         <Origem size={24} strokeWidth={2} aria-hidden />
       </div>

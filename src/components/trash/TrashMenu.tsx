@@ -2,17 +2,19 @@
 
 import { MoreVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
 import { moverParaLixeira } from "@/lib/trash/actions";
 import type { TrashKind } from "@/lib/trash/rules";
 import { useTrashToast } from "./TrashToast";
 import styles from "./trash.module.css";
+import { useHold } from "./useHold";
 
 /**
  * Botão ⋮ com "Mover para a lixeira". Pede uma confirmação curta; depois mostra o aviso com "Desfazer".
  * `then`: para onde ir depois de mover (padrão: só atualizar a tela).
+ * Se o card em volta tiver `data-hold-menu`, segurar o card também abre o menu.
  */
 export function TrashMenu({ kind, id, title, then }: { kind: TrashKind; id: string; title: string; then?: string }) {
   const router = useRouter();
@@ -22,6 +24,8 @@ export function TrashMenu({ kind, id, title, then }: { kind: TrashKind; id: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isFolder = kind === "projeto";
+  const dotsRef = useRef<HTMLButtonElement>(null);
+  useHold(dotsRef, () => setOpen(true));
 
   function close() {
     setOpen(false);
@@ -52,7 +56,7 @@ export function TrashMenu({ kind, id, title, then }: { kind: TrashKind; id: stri
 
   return (
     <>
-      <button type="button" className={styles.dots} aria-label={`Mais ações: ${title}`} onClick={() => setOpen(true)}>
+      <button ref={dotsRef} type="button" className={styles.dots} aria-label={`Mais ações: ${title}`} onClick={() => setOpen(true)}>
         <MoreVertical size={20} strokeWidth={2} aria-hidden />
       </button>
       <Sheet open={open} onClose={close} title={confirm ? (isFolder ? "Mover o projeto para a lixeira?" : "Mover o vídeo para a lixeira?") : title} busy={busy}>

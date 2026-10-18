@@ -95,3 +95,10 @@ h3 {
     scroll-behavior: auto !important;
   }
 }
+
+/* Cards que abrem o menu ao segurar: sem a prévia de link nem seleção de texto do celular. */
+[data-hold-menu] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
