@@ -124,3 +124,12 @@ describe("validateDirection", () => {
     expect(validateDirection({ ...direction, style: "numero_grande", words: "7 ERROS" }, "São 17 erros.")).not.toEqual([]);
   });
 });
+
+describe("validateDirection: cores e emoção proibidas", () => {
+  const source = "Dicas de organização. São 7 erros comuns no controle do dinheiro.";
+  it("reprova roxo/neon nas cores e na emoção, não só na cena", () => {
+    expect(validateDirection({ ...direction, colors: { ...direction.colors, accent: "roxo neon" } }, source)).not.toEqual([]);
+    expect(validateDirection({ ...direction, colors: { ...direction.colors, main: "violeta" } }, source)).not.toEqual([]);
+    expect(validateDirection({ ...direction, emotion: "brilhante e futurista" }, source)).not.toEqual([]);
+  });
+});

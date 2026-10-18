@@ -88,7 +88,7 @@ class FakeCoversDb implements CoversDb {
   async blocks() { return [{ position: 1, text: "Primeiro trecho do corte." }]; }
   async cuts() { return structuredClone(this.cutList); }
   async profile() { return null; }
-  async saveCovers(_id: string, data: { coverPrompt?: string | null; interview: Interview }) { this.savedCovers = data; return true; }
+  async saveCovers(_id: string, data: { coverPrompt?: string | null; interview: Interview }) { this.savedCovers = data; this.project.interview = data.interview; return true; }
   async saveCuts(_id: string, cuts: Cut[]) { this.savedCuts = cuts; return true; }
 }
 
@@ -131,7 +131,9 @@ describe("regenerateCoversWith", () => {
     const db = new FakeCoversDb();
     const boom = async () => ({ generateJson: async () => { throw new Error("IA caiu"); } }) as unknown as UserAi;
     await expect(regenerateCoversWith({ db, ai: boom, score, now: () => NOW }, "p1")).rejects.toThrow();
-    expect(db.savedCovers).toBeNull();
+    // O refazer já estava reservado (conta na trava), mas nenhuma capa nova foi gravada.
+    expect(db.savedCovers?.coverPrompt).toBeUndefined();
+    expect(db.savedCovers?.interview.scriptAgents?.covers).toBeUndefined();
   });
 
   it("projeto ou corte que não existem viram erro claro", async () => {
@@ -139,5 +141,32 @@ describe("regenerateCoversWith", () => {
     await expect(regenerateCoversWith({ db, ai: coverAi({ n: 0 }), score, now: () => NOW }, "outro")).rejects.toThrow(AiError);
     await expect(regenerateCoversWith({ db, ai: coverAi({ n: 0 }), score, now: () => NOW }, "p1", "nao-existe")).rejects.toThrow(AiError);
     expect(db.savedCovers).toBeNull();
+  });
+});
+
+describe("regenerateCoversWith: trava e gravação", () => {
+  beforeEach(() => resetMock());
+
+  it("reserva o refazer ANTES de chamar a IA (cliques em paralelo não passam todos)", async () => {
+    const db = new FakeCoversDb();
+    const order: string[] = [];
+    const saveCovers = db.saveCovers.bind(db);
+    db.saveCovers = async (id, data) => { order.push(`save:${data.interview.coverRegens?.length ?? 0}`); return saveCovers(id, data); };
+    const ai = coverAi({ n: 0 });
+    await regenerateCoversWith({ db, ai: async () => { order.push("ai"); return ai(); }, score, now: () => NOW }, "p1");
+    expect(order[0]).toBe("save:1");
+    expect(order.indexOf("ai")).toBeGreaterThan(0);
+  });
+
+  it("refazer um corte não apaga as capas do vídeo que outro refazer gravou durante a espera da IA", async () => {
+    const db = new FakeCoversDb();
+    const ai = coverAi({ n: 0 });
+    const other = [{ type: "pergunta", text: "t", words: "OUTRO", why: "w", prompt: "p-outro", score: 1, best: true }];
+    await regenerateCoversWith(
+      { db, ai: async () => { db.project.interview = { ...db.project.interview, scriptAgents: { covers: other } }; return ai(); }, score, now: () => NOW },
+      "p1",
+      "c1",
+    );
+    expect(db.project.interview?.scriptAgents?.covers).toEqual(other);
   });
 });

@@ -81,8 +81,10 @@ export function validateDirection(d: CoverDirection, sourceText: string): string
     if (t === t.normalize("NFD").replace(/\p{M}/gu, "") && MISSING_ACCENT.has(bare)) problems.push(`faltou acento em "${t}"`);
   }
   if (/—|–/.test(`${d.words} ${d.scene} ${d.emotion}`)) problems.push("tem travessão no texto");
-  const hit = stripAccents(d.scene).toLowerCase().match(FORBIDDEN_IN_SCENE);
-  if (hit) problems.push(`a cena pede "${hit[0]}", que dá cara de IA`);
+  for (const [field, value] of [["cena", d.scene], ["emoção", d.emotion], ["cor principal", d.colors.main], ["cor de apoio", d.colors.support], ["cor de destaque", d.colors.accent]] as const) {
+    const hit = stripAccents(value).toLowerCase().match(FORBIDDEN_IN_SCENE);
+    if (hit) problems.push(`${field === "cena" ? "a cena" : `a ${field}`} pede "${hit[0]}", que dá cara de IA`);
+  }
   if (COVER_STYLES[d.style].needsNumber) {
     const numbers = words.match(/\d+/g) ?? [];
     if (numbers.length === 0) problems.push("o estilo número grande precisa de um número nas palavras");

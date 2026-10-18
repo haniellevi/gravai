@@ -70,18 +70,26 @@ export async function regenerateCoversWith(deps: RegenDeps, projectId: string, c
     hook = i.scriptAgents?.hooks?.find((h) => h.best)?.text;
   }
 
+  // Reserva o refazer já, antes da IA demorada: cliques em paralelo não passam todos pela mesma leitura.
+  if (!(await deps.db.saveCovers(projectId, { interview: { ...i, coverRegens: gate.history } }))) throw new Error(MSG_SAVE_FAILED);
+
   const ai = await deps.ai();
   const scored = await capasAgent({ ai, score: deps.score }, { ctx, hook });
   const best = scored.find((c) => c.best);
   if (!best) throw new AiError(undefined, { code: "invalid_output" });
   const options: CoverOption[] = scored.map(({ type, text, words, why, prompt, score, best: b }) => ({ type, text, words, why, prompt, score, best: b }));
 
+  // Relê o projeto: durante a IA outro refazer pode ter gravado; só as chaves desta capa mudam.
+  const fresh = (await deps.db.getProject(projectId)) ?? project;
+  const fi = fresh.interview ?? {};
   if (cutId) {
-    cuts[cutIndex] = { ...cuts[cutIndex], coverOptions: options, coverPrompt: best.prompt };
-    if (!(await deps.db.saveCuts(projectId, cuts))) throw new Error(MSG_SAVE_FAILED);
-    if (!(await deps.db.saveCovers(projectId, { interview: { ...i, coverRegens: gate.history } }))) throw new Error(MSG_SAVE_FAILED);
+    const latest = await deps.db.cuts(projectId);
+    const at = latest.findIndex((c) => c.id === cutId);
+    if (at < 0) throw new AiError(MSG_NOT_FOUND, { code: "invalid_input" });
+    latest[at] = { ...latest[at], coverOptions: options, coverPrompt: best.prompt };
+    if (!(await deps.db.saveCuts(projectId, latest))) throw new Error(MSG_SAVE_FAILED);
   } else {
-    const interview: Interview = { ...i, coverRegens: gate.history, scriptAgents: { ...i.scriptAgents, covers: options } };
+    const interview: Interview = { ...fi, scriptAgents: { ...fi.scriptAgents, covers: options } };
     if (!(await deps.db.saveCovers(projectId, { coverPrompt: best.prompt, interview }))) throw new Error(MSG_SAVE_FAILED);
   }
   return options;

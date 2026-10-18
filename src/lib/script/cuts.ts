@@ -34,7 +34,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof
 const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.slice(0, n) : "");
 
 /** Opções de capa vindas do navegador: no máximo 3, só objetos com prompt, textos aparados. Não é lista = ignora. */
-function sanitizeCoverOptions(input: unknown): CoverOption[] | undefined {
+export function sanitizeCoverOptions(input: unknown): CoverOption[] | undefined {
   if (!Array.isArray(input)) return undefined;
   const out: CoverOption[] = [];
   for (const o of input) {

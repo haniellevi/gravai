@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ScriptEditor, type EditorBlock } from "@/components/script/ScriptEditor";
 import { ScriptNotice } from "@/components/script/ScriptNotice";
 import { AiError } from "@/lib/ai/schemas";
-import { validateCuts } from "@/lib/script/cuts";
+import { sanitizeCoverOptions, validateCuts } from "@/lib/script/cuts";
 import { isPlatform, type Platform } from "@/lib/interview/steps";
 import type { CoverOption } from "@/lib/interview/steps";
 import type { BlockKind } from "@/lib/script/generate";
@@ -81,7 +81,7 @@ export default async function ScriptPage({ params }: { params: Promise<{ id: str
 
   // As opções de capa foram gravadas pelo servidor (agente de capas); projetos antigos não têm.
   const agents = (interview as { scriptAgents?: { covers?: unknown } }).scriptAgents;
-  const covers = Array.isArray(agents?.covers) ? (agents.covers as CoverOption[]) : undefined;
+  const covers = sanitizeCoverOptions(agents?.covers);
 
   const cutSeconds = "cutSeconds" in interview && typeof interview.cutSeconds === "number" ? interview.cutSeconds : null;
   const cutsRaw = validateCuts(project.cuts, rows.length);
