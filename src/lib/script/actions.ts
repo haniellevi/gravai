@@ -5,7 +5,10 @@ import { AiError, checkScript, reviewExcerpts, scoreClosing, scoreCovers, scoreH
 import { createServerClient } from "@/lib/supabase/server";
 import type { Cut } from "./cuts";
 import { cutsWarnings, saveCutsWith, suggestCutsWith } from "./cuts-generate";
-import { supabaseBlockDb, supabaseCutsDb, supabaseScriptDb } from "./db";
+import { regenerateCoversWith } from "./covers";
+import { supabaseBlockDb, supabaseCoversDb, supabaseCutsDb, supabaseScriptDb } from "./db";
+import { MSG_NOT_FOUND } from "@/lib/interview/service";
+import type { CoverOption } from "@/lib/interview/steps";
 import { generateScriptWith } from "./generate";
 import { MSG_BLOCK_NOT_FOUND, rewriteBlockWith, updateBlockTextWith, type RewriteMode } from "./rewrite";
 
@@ -112,6 +115,21 @@ export async function saveCuts(projectId: string, input: unknown): Promise<{ cut
     if (!r.ok) return { error: r.error };
     revalidatePath("/(app)/projetos/[id]/script", "page");
     return { cuts: r.cuts };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+/** Refaz as 3 capas do vídeo (ou do corte `cutId`). Não conta na cota de uso; tem trava de 10 por vídeo por hora. */
+export async function regenerateCovers(projectId: string, cutId?: string): Promise<{ ok: true; options: CoverOption[] } | ActionError> {
+  if (typeof projectId !== "string" || !UUID.test(projectId)) return { error: MSG_NOT_FOUND };
+  if (cutId !== undefined && (typeof cutId !== "string" || !/^[A-Za-z0-9_-]{1,40}$/.test(cutId))) return { error: MSG_NOT_FOUND };
+  const s = await sessionUser();
+  if (!s) return { error: MSG_EXPIRED };
+  try {
+    const options = await regenerateCoversWith({ db: supabaseCoversDb({ supabase: s.supabase }), ai: () => withUserAi(s.userId), score: scoreCovers }, projectId, cutId);
+    revalidatePath("/(app)/projetos/[id]/script", "page");
+    return { ok: true, options };
   } catch (e) {
     return failure(e);
   }

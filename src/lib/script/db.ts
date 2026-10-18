@@ -6,6 +6,7 @@ import type { InterviewProject } from "@/lib/interview/service";
 import type { Interview } from "@/lib/interview/steps";
 import type { Cut } from "./cuts";
 import type { CutsDb } from "./cuts-generate";
+import type { CoversDb } from "./covers";
 import type { BlockKind, ScriptDb } from "./generate";
 import type { BlockDb } from "./rewrite";
 
@@ -119,6 +120,34 @@ export function supabaseCutsDb(deps: { supabase: SupabaseClient<Database> }): Cu
     },
     async saveCuts(projectId, cuts: Cut[]) {
       const { data, error } = await supabase.from("projects").update({ cuts: asJson(cuts) }).eq("id", projectId).select("id");
+      return !error && (data?.length ?? 0) > 0;
+    },
+  };
+}
+
+/** CoversDb sobre o Supabase da sessão do usuário (RLS limita aos projetos dele). */
+export function supabaseCoversDb(deps: { supabase: SupabaseClient<Database> }): CoversDb {
+  const { supabase } = deps;
+  const cutsDb = supabaseCutsDb({ supabase });
+  return {
+    getProject: cutsDb.getProject,
+    blocks: cutsDb.blocks,
+    saveCuts: cutsDb.saveCuts,
+    async cuts(projectId) {
+      const { data, error } = await supabase.from("projects").select("cuts").eq("id", projectId).maybeSingle();
+      if (error) throw new Error("read cuts failed");
+      return Array.isArray(data?.cuts) ? (data.cuts as unknown as Cut[]) : [];
+    },
+    async profile() {
+      const { data } = await supabase.from("profiles").select("niche, audience, tone, phrases").maybeSingle();
+      return data;
+    },
+    async saveCovers(projectId, { coverPrompt, interview }) {
+      const { data, error } = await supabase
+        .from("projects")
+        .update({ interview: asJson(interview), ...(coverPrompt !== undefined ? { cover_prompt: coverPrompt } : {}) })
+        .eq("id", projectId)
+        .select("id");
       return !error && (data?.length ?? 0) > 0;
     },
   };
